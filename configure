@@ -1,0 +1,82 @@
+#!/bin/sh
+# configure
+#
+# Runs automatically as part of `R CMD INSTALL` (this is the standard R
+# package mechanism for running shell code during install -- see R
+# Extensions manual, "Configure and cleanup"). This is NOT a separate
+# manual step: remotes::install_github(), devtools::install_local(), and
+# plain R CMD INSTALL all execute this before the package is considered
+# installed.
+#
+# Purpose: reassemble the EnsDb SQLite database from its gzipped, chunked
+# parts (inst/extdata/EnsDb.Hsapiens.v116.sqlite.gz.part.NN), since GitHub
+# blocks any single committed file over 100MB and the database exceeds
+# that threshold. The chunks are not a second source of truth -- they are
+# a storage encoding of the single build produced by
+# inst/scripts/build_ensdb.R. This script performs the inverse operation:
+# concatenate, decompress, verify checksum.
+#
+# By the time install finishes, inst/extdata/EnsDb.Hsapiens.v116.sqlite
+# exists in the installed package directory exactly as if it had been
+# committed directly -- there is no load-time step, no first-use delay,
+# and no behavior that differs from how EnsDb.Hsapiens.v86 behaves once
+# installed.
+#
+# No network access occurs here. Everything needed is already present in
+# the package source tree from the git clone / tarball download that
+# install_github() already performed.
+
+set -e
+
+PKG_NAME="EnsDb.Hsapiens.v116"
+EXTDATA_DIR="inst/extdata"
+SQLITE_PATH="${EXTDATA_DIR}/${PKG_NAME}.sqlite"
+GZ_PATH="${EXTDATA_DIR}/${PKG_NAME}.sqlite.gz"
+SHA_MANIFEST="${EXTDATA_DIR}/${PKG_NAME}.sqlite.sha256"
+
+if [ -f "${SQLITE_PATH}" ]; then
+  echo "configure: ${SQLITE_PATH} already present -- skipping reassembly."
+  exit 0
+fi
+
+PARTS=$(ls "${EXTDATA_DIR}"/${PKG_NAME}.sqlite.gz.part.* 2>/dev/null | sort)
+
+if [ -z "${PARTS}" ]; then
+  echo "configure: WARNING -- no .sqlite file and no chunked parts found in"
+  echo "  ${EXTDATA_DIR}/"
+  echo "This looks like a source checkout where inst/scripts/build_ensdb.R"
+  echo "has not yet been run and committed. Install will proceed, but"
+  echo "${PKG_NAME}() will fail at call time until the database exists."
+  echo "See the package README for instructions."
+  exit 0
+fi
+
+echo "configure: reassembling ${PKG_NAME}.sqlite from chunked parts..."
+cat "${EXTDATA_DIR}"/${PKG_NAME}.sqlite.gz.part.* > "${GZ_PATH}"
+
+echo "configure: decompressing..."
+gunzip -k "${GZ_PATH}"
+rm -f "${GZ_PATH}"
+
+if [ -f "${SHA_MANIFEST}" ]; then
+  EXPECTED_SHA=$(cat "${SHA_MANIFEST}" | awk '{print $1}')
+  ACTUAL_SHA=$(sha256sum "${SQLITE_PATH}" | awk '{print $1}')
+
+  if [ "${EXPECTED_SHA}" != "${ACTUAL_SHA}" ]; then
+    echo "configure: ERROR -- checksum mismatch after reassembly."
+    echo "  Expected: ${EXPECTED_SHA}"
+    echo "  Actual:   ${ACTUAL_SHA}"
+    echo "The reassembled database does not match the checksum recorded at"
+    echo "build time. Removing the corrupted file and aborting install."
+    rm -f "${SQLITE_PATH}"
+    exit 1
+  fi
+
+  echo "configure: checksum verified OK (${ACTUAL_SHA})"
+else
+  echo "configure: WARNING -- no .sha256 manifest found; reassembled"
+  echo "  database was NOT verified against a recorded checksum."
+fi
+
+echo "configure: ${SQLITE_PATH} ready."
+exit 0

@@ -1,0 +1,30 @@
+Package: EnsDb.Hsapiens.v116
+Title: Ensembl Based Annotation Package for Homo sapiens, Release 116
+Version: 0.1.0
+Authors@R: person("Brian", "Lamere", email = "you@example.com", role = c("aut", "cre"))
+Description: Exposes an EnsDb object built from Ensembl release 116
+    (GRCh38, June 2026) gene annotations for Homo sapiens. This is an
+    independently built, unofficial package, modeled directly on the
+    Bioconductor 'EnsDb.Hsapiens.vNN' package series (e.g.
+    EnsDb.Hsapiens.v86, maintained via AnnotationHub/ensembldb by the
+    Bioconductor project, last released for Ensembl 86). Those packages
+    have not been updated to track current Ensembl releases, so this
+    package fills the same role for release 116. The underlying SQLite
+    database is built directly from the Ensembl GTF for release 116 using
+    the 'ensembldb' package; see inst/scripts/build_ensdb.R for the full,
+    reproducible build procedure, including the exact source URL and
+    checksum verification. The built database is stored in this package
+    as checksummed, chunked parts (to stay under GitHub's 100MB per-file
+    limit) and is reassembled automatically during installation via the
+    bundled 'configure' script, so the database is fully present and
+    ready to use as soon as installation completes, with no separate
+    manual step and no network access required at install or load time.
+License: Artistic-2.0
+Encoding: UTF-8
+LazyData: false
+NeedsCompilation: no
+biocViews: AnnotationData, OrganismData, Homo_sapiens
+Depends: R (>= 4.1.0), ensembldb (>= 2.0.0)
+RoxygenNote: 7.3.0
+URL: https://github.com/brianlamere/EnsDb.Hsapiens.v116
+BugReports: https://github.com/brianlamere/EnsDb.Hsapiens.v116/issues
